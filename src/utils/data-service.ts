@@ -26,7 +26,7 @@ export class DataService {
 	};
 
 	private async getLocalOrWarehouse<T>(key: string): Promise<T | null> {
-		if (this.settings.useWarehouse) {
+		if (this.settings.useWarehouse || this.settings.useFirebase) {
 			return this.storageService.get<T>(key);
 		} else {
 			return localforage.getItem<T>(key);
@@ -34,7 +34,7 @@ export class DataService {
 	}
 
 	private async putLocalOrWarehouse<T>(key: string, value: T): Promise<T> {
-		if (this.settings.useWarehouse) {
+		if (this.settings.useWarehouse || this.settings.useFirebase) {
 			return this.storageService.put<T>(key, value);
 		} else {
 			return localforage.setItem<T>(key, value);
@@ -42,7 +42,7 @@ export class DataService {
 	}
 
 	async initialize(): Promise<boolean> {
-		if (this.settings.useWarehouse) {
+		if (this.settings.useWarehouse || this.settings.useFirebase) {
 			return this.storageService.initialize();
 		} else {
 			return true;
