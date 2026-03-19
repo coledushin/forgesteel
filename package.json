@@ -2,7 +2,7 @@
 	"name": "forgesteel",
 	"private": true,
 	"version": "12.97.0",
-	"type": "module",
+	"type": "commonjs",
 	"repository": "https://github.com/andyaiken/forgesteel.git",
 	"homepage": "https://andyaiken.github.io/forgesteel/",
 	"scripts": {
