@@ -5,7 +5,7 @@ import { StorageService } from '@/service/storage/storage-service';
 
 const firebaseConfig = {
 	apiKey: 'AIzaSyD7X36A-L49OoyQ4vlgHXIL3v4o0in3aNw',
-	authDomain: 'forgesteel-db477.web.app',
+	authDomain: 'forgesteel-db477.firebaseapp.com',
 	projectId: 'forgesteel-db477',
 	storageBucket: 'forgesteel-db477.firebasestorage.app',
 	messagingSenderId: '891967573630',
