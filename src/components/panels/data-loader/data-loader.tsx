@@ -9,6 +9,7 @@ import { DataService } from '@/utils/data-service';
 import { Expander } from '@/components/controls/expander/expander';
 import { FactoryLogic } from '@/logic/factory-logic';
 import { FeatureFlags } from '@/utils/feature-flags';
+import { FirebaseService } from '@/service/storage/firebase-service';
 import { Format } from '@/utils/format';
 import { HeaderText } from '@/components/controls/header-text/header-text';
 import { Hero } from '@/models/hero';
@@ -55,6 +56,7 @@ export const DataLoader = (props: Props) => {
 	const [ overallLoadState, setOverallLoadState ] = useState<LoadingStatus>('pending');
 	const [ connectionSettings, setConnectionSettings ] = useState<ConnectionSettings | null>(null);
 	const [ error, setError ] = useState<string | null>(null);
+	const [ needsFirebaseSignIn, setNeedsFirebaseSignIn ] = useState<boolean>(false);
 
 	// Load connection settings and create DataService
 	async function getDataService() {
@@ -66,8 +68,22 @@ export const DataLoader = (props: Props) => {
 
 		setConnectionSettings(settings);
 		const service = new DataService(settings);
-		await service.initialize();
+		const initialized = await service.initialize();
+
+		if (!initialized && settings.useFirebase) {
+			setNeedsFirebaseSignIn(true);
+			throw new Error('Firebase sign-in required');
+		}
+
 		return service;
+	};
+
+	const handleFirebaseSignIn = async () => {
+		const success = await FirebaseService.signIn();
+		if (success) {
+			setNeedsFirebaseSignIn(false);
+			loadData();
+		}
 	};
 
 	const persistConnectionSettings = (connectionSettings: ConnectionSettings) => {
@@ -95,6 +111,7 @@ export const DataLoader = (props: Props) => {
 
 	const loadData = () => {
 		setError(null);
+		setNeedsFirebaseSignIn(false);
 		setOverallLoadState('pending');
 		setConnectionSettingsState('pending');
 
@@ -249,9 +266,11 @@ export const DataLoader = (props: Props) => {
 				setOverallLoadState('failure');
 			});
 		}).catch(reason => {
-			console.error(reason);
-			setError(reason.message);
-			setOverallLoadState('failure');
+			if (!needsFirebaseSignIn) {
+				console.error(reason);
+				setError(reason.message);
+				setOverallLoadState('failure');
+			}
 		});
 	};
 
@@ -271,18 +290,32 @@ export const DataLoader = (props: Props) => {
 				</div>
 				<HeaderText level={1}>Loading Data</HeaderText>
 				<Flex vertical={true}>
-					<Flex className='load-states' vertical={true}>
-						<CheckLabel state={connectionSettingsState}>Connection Settings</CheckLabel>
-						<CheckLabel state={heroesState}>Heroes</CheckLabel>
-						<CheckLabel state={homebrewState}>Homebrew Content</CheckLabel>
-						<CheckLabel state={playbookState}>Playbook</CheckLabel>
-						<CheckLabel state={sessionState}>Session</CheckLabel>
-						<CheckLabel state={optionsState}>Options</CheckLabel>
-						<CheckLabel state={hiddenSettingsState}>Identifying Manifold</CheckLabel>
-						<CheckLabel state={splinesState}>Reticulating Splines</CheckLabel>
-					</Flex>
 					{
-						error ?
+						needsFirebaseSignIn ?
+							<Flex gap='small' vertical={true} align='center' style={{ padding: '20px 0' }}>
+								<p>Sign in with Google to sync your data across devices.</p>
+								<Button
+									type='primary'
+									size='large'
+									onClick={handleFirebaseSignIn}
+								>
+									Sign in with Google
+								</Button>
+							</Flex>
+							:
+							<Flex className='load-states' vertical={true}>
+								<CheckLabel state={connectionSettingsState}>Connection Settings</CheckLabel>
+								<CheckLabel state={heroesState}>Heroes</CheckLabel>
+								<CheckLabel state={homebrewState}>Homebrew Content</CheckLabel>
+								<CheckLabel state={playbookState}>Playbook</CheckLabel>
+								<CheckLabel state={sessionState}>Session</CheckLabel>
+								<CheckLabel state={optionsState}>Options</CheckLabel>
+								<CheckLabel state={hiddenSettingsState}>Identifying Manifold</CheckLabel>
+								<CheckLabel state={splinesState}>Reticulating Splines</CheckLabel>
+							</Flex>
+					}
+					{
+						error && !needsFirebaseSignIn ?
 							<Alert
 								type='error'
 								showIcon={true}

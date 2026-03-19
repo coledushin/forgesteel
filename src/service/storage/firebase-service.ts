@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithRedirect, getRedirectResult, GoogleAuthProvider, onAuthStateChanged, User } from 'firebase/auth';
+import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, User } from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
 import { StorageService } from '@/service/storage/storage-service';
 
@@ -16,6 +16,8 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
+
+let signInPromiseResolve: (() => void) | null = null;
 
 export class FirebaseService implements StorageService {
 	private user: User | null = null;
@@ -34,29 +36,31 @@ export class FirebaseService implements StorageService {
 		await this.authReady;
 		if (this.user) return true;
 
-		try {
-			const result = await getRedirectResult(auth);
-			if (result) {
-				this.user = result.user;
-				return true;
-			}
-		} catch (error) {
-			console.error('Firebase redirect result failed:', error);
-		}
+		// User not signed in — wait for them to click the sign-in button
+		// The DataLoader UI will show the button, which calls FirebaseService.signIn()
+		return new Promise<boolean>((resolve) => {
+			signInPromiseResolve = () => resolve(true);
+			// If sign-in doesn't happen within 1ms, return false to let the loader show UI
+			setTimeout(() => {
+				if (!this.user) {
+					resolve(false);
+				}
+			}, 1);
+		});
+	}
 
-		// Only redirect if we haven't already tried this session
-		const redirectKey = 'firebase-redirect-pending';
-		if (sessionStorage.getItem(redirectKey)) {
-			// We already tried redirecting and came back without auth
-			// Don't loop — fall back to local storage
-			sessionStorage.removeItem(redirectKey);
-			console.warn('Firebase auth redirect failed, falling back to local storage');
+	static async signIn(): Promise<boolean> {
+		try {
+			const result = await signInWithPopup(auth, provider);
+			if (result.user && signInPromiseResolve) {
+				signInPromiseResolve();
+				signInPromiseResolve = null;
+			}
+			return true;
+		} catch (error) {
+			console.error('Firebase sign-in failed:', error);
 			return false;
 		}
-
-		sessionStorage.setItem(redirectKey, 'true');
-		await signInWithRedirect(auth, provider);
-		return false;
 	}
 
 	async get<T>(key: string): Promise<T | null> {
@@ -90,6 +94,10 @@ export class FirebaseService implements StorageService {
 
 	static getAuth() {
 		return auth;
+	}
+
+	static isSignedIn(): boolean {
+		return auth.currentUser !== null;
 	}
 
 	getUser(): User | null {
